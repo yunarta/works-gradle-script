@@ -67,22 +67,21 @@ install {
     }
 }
 
-task jar(type: Jar) {
+tasks.maybeCreate('jar', Jar.class).configure {
     from 'build/intermediates/classes/release'
 }
 
-
-task sourcesJar(type: Jar) {
+tasks.maybeCreate('sourcesJar', Jar.class).configure {
     from android.sourceSets.main.java.srcDirs
     classifier = 'sources'
 }
 
-task javadoc(type: Javadoc) {
+tasks.maybeCreate('javadoc', Javadoc.class).configure {
     source = android.sourceSets.main.java.srcDirs
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
+tasks.maybeCreate('javadocJar', Jar.class).dependsOn(javadoc).configure {
     classifier = 'javadoc'
     from javadoc.destinationDir
 }
