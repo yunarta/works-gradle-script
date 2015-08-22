@@ -1,0 +1,126 @@
+def tmpDir = System.getenv('TMPDIR')
+
+def repositoryXml = file(tmpDir + '/auto-configure.repository.xml')
+def addOnXml = file(tmpDir + '/auto-configure.addon.xml')
+
+def downloadRepository = !repositoryXml.exists() || repositoryXml.lastModified() + (24 * 60 * 60) < System.currentTimeMillis()
+def downloadAddOn = !addOnXml.exists() || addOnXml.lastModified() + (24 * 60 * 60) < System.currentTimeMillis()
+
+if (!gradle.startParameter.offline) {
+    if (downloadRepository) {
+        new URL('https://dl.google.com/android/repository/repository-11.xml').withInputStream {
+            i -> repositoryXml.withOutputStream { it << i }
+        }
+    }
+
+    if (downloadAddOn) {
+        new URL('https://dl.google.com/android/repository/addon.xml').withInputStream {
+            i -> addOnXml.withOutputStream { it << i }
+        }
+    }
+}
+
+def autoBuildTools, autoCompileSdk, autoRepositoryRevision
+if (repositoryXml.exists() && addOnXml.exists()) {
+    def repository = new XmlParser().parse(repositoryXml)
+    def highestApiLevel = 0
+    for (apiLevel in repository.'sdk:platform'.'sdk:api-level') {
+        highestApiLevel = Math.max(highestApiLevel, Integer.parseInt(apiLevel.text()))
+    }
+
+    autoCompileSdk = String.valueOf(highestApiLevel)
+
+    def buildToolsList = []
+    for (buildTools in repository.'sdk:build-tool'.'sdk:revision') {
+        def revision = buildTools.'sdk:major'.text() + '.' + buildTools.'sdk:minor'.text() + '.' + buildTools.'sdk:micro'.text()
+        buildToolsList.add(revision)
+    }
+
+    autoBuildTools = mostRecentVersion(buildToolsList)
+
+    def addOn = new XmlParser().parse(addOnXml)
+    for (extra in addOn.'sdk:extra') {
+        if ('support'.equals(extra.'sdk:path'.text())) {
+            def revision = extra.'sdk:revision'
+            autoRepositoryRevision = revision.'sdk:major'.text() + '.' + revision.'sdk:minor'.text() + '.' + revision.'sdk:micro'.text()
+        }
+    }
+} else {
+    // get android home
+    def androidHome
+    def localProperties = project.rootProject.file('local.properties')
+    if (localProperties.exists()) {
+        Properties properties = new Properties()
+
+        def is = localProperties.newDataInputStream()
+        properties.load(is)
+        is.close();
+
+        androidHome = properties['sdk.dir']
+    } else {
+        def env = System.getenv()
+        androidHome = env['ANDROID_HOME']
+    }
+
+    def buildToolsList = []
+    file(androidHome + '/build-tools').eachFile {
+        file -> buildToolsList.add(file.name)
+    }
+
+    autoBuildTools = mostRecentVersion(buildToolsList)
+
+    def platformDirs = []
+    file(androidHome + '/platforms').eachFile {
+        file -> platformDirs.add(file.name)
+    }
+
+    platformsDirs.sort()
+    String platformDir = platformDirs.last()
+    autoCompileSdk = platformDir.substring(platformDir.lastIndexOf('-') + 1)
+
+    def supportDirs = []
+    file(androidHome + '/extras/android/m2repository/com/android/support/support-v13').eachFile {
+        file ->
+            if (file.isDirectory()) {
+                supportDirs.add(file.name)
+            }
+    }
+
+    autoRepositoryRevision = mostRecentVersion(supportDirs)
+}
+
+String mostRecentVersion(List versions) {
+    versions.sort(false) { a, b ->
+        [a, b]*.tokenize('.')*.collect { it as int }.with { u, v ->
+            [u, v].transpose().findResult { x, y -> x <=> y ?: null } ?: u.size() <=> v.size()
+        }
+    }[-1]
+}
+
+gradle.allprojects {
+    ext {
+        autoCompileSdkVersion = { int version ->
+            if (autoCompileSdk != null) {
+                version = Integer.parseInt(autoCompileSdk)
+            }
+
+            return version
+        }
+
+        autoBuildToolsVersion = { String revision ->
+            if (autoBuildTools != null) {
+                revision = autoBuildTools
+            }
+
+            return revision
+        }
+
+        autoSupportLibVersion = { String revision ->
+            if (autoRepositoryRevision != null) {
+                revision = autoRepositoryRevision
+            }
+
+            return revision
+        }
+    }
+}
