@@ -1,4 +1,5 @@
 def tmpDir = System.getenv('TMPDIR')
+def writable = file(tmpDir).canWrite()
 
 def repositoryXml = file(tmpDir + '/auto-configure.repository.xml')
 def addOnXml = file(tmpDir + '/auto-configure.addon.xml')
@@ -6,23 +7,30 @@ def addOnXml = file(tmpDir + '/auto-configure.addon.xml')
 def downloadRepository = !repositoryXml.exists() || repositoryXml.lastModified() + (24 * 60 * 60) < System.currentTimeMillis()
 def downloadAddOn = !addOnXml.exists() || addOnXml.lastModified() + (24 * 60 * 60) < System.currentTimeMillis()
 
+def repository = null
+def addOn = null
 if (!gradle.startParameter.offline) {
-    if (downloadRepository) {
+    if (downloadRepository && writable) {
         new URL('https://dl.google.com/android/repository/repository-11.xml').withInputStream {
             i -> repositoryXml.withOutputStream { it << i }
         }
+        repository = new XmlParser().parse(repositoryXml)
+    } else {
+        repository = new XmlParser().parse('https://dl.google.com/android/repository/repository-11.xml')
     }
 
-    if (downloadAddOn) {
+    if (downloadAddOn && writable) {
         new URL('https://dl.google.com/android/repository/addon.xml').withInputStream {
             i -> addOnXml.withOutputStream { it << i }
         }
+        addOn = new XmlParser().parse(addOnXml)
+    } else {
+        addOn = new XmlParser().parse('https://dl.google.com/android/repository/addon.xml')
     }
 }
 
 def autoBuildTools, autoCompileSdk, autoRepositoryRevision
-if (repositoryXml.exists() && addOnXml.exists()) {
-    def repository = new XmlParser().parse(repositoryXml)
+if (repository != null && addOn != null) {
     def highestApiLevel = 0
     for (apiLevel in repository.'sdk:platform'.'sdk:api-level') {
         highestApiLevel = Math.max(highestApiLevel, Integer.parseInt(apiLevel.text()))
@@ -37,8 +45,6 @@ if (repositoryXml.exists() && addOnXml.exists()) {
     }
 
     autoBuildTools = mostRecentVersion(buildToolsList)
-
-    def addOn = new XmlParser().parse(addOnXml)
     for (extra in addOn.'sdk:extra') {
         if ('support'.equals(extra.'sdk:path'.text())) {
             def revision = extra.'sdk:revision'
