@@ -67,14 +67,15 @@ install {
     }
 }
 
-task sourcesJar(type: Jar) {
-    from sourceSets.main.java.srcDirs
+tasks.maybeCreate('sourcesJar', Jar.class).configure {
+    from android.sourceSets.main.java.srcDirs
     classifier = 'sources'
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from javadoc.destinationDir
+
+tasks.maybeCreate('javadoc', Javadoc.class).configure {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
 artifacts {
