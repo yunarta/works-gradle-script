@@ -1,5 +1,5 @@
 # works-gradle-script
-===
+
 This is a collection of useful direct apply Gradle scripts.
 
 ## Auto Configure
