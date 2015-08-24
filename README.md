@@ -66,6 +66,7 @@ worksPublish {
     gitUrl = 'https://github.com/yunarta/works-gradle-script.git'
 }
 ```
+And lastly put either ot this Gradle script at the end of build.gradle, dependending of what kind of library you'll publishing.
 
 **For publishing Android Library**
 
