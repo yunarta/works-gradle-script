@@ -16,7 +16,7 @@ What the script do:
 
 **Usage**
 ```
-apply from: ('https://raw.githubusercontent.com/yunarta/works_gradle_script/master/auto-configure.gradle')
+apply from: ('https://raw.githubusercontent.com/yunarta/works-gradle-script/master/auto-configure.gradle')
 
 android {
     compileSdkVersion autoCompileSdkVersion(22)
