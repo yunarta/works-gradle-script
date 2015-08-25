@@ -68,13 +68,13 @@ install {
 }
 
 tasks.maybeCreate('sourcesJar', Jar.class).configure {
-    from android.sourceSets.main.java.srcDirs
+    from sourceSets.main.java.srcDirs
     classifier = 'sources'
 }
 
 
 tasks.maybeCreate('javadoc', Javadoc.class).configure {
-    source = android.sourceSets.main.java.srcDirs
+    source = sourceSets.main.java.srcDirs
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
