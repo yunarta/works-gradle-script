@@ -72,10 +72,13 @@ tasks.maybeCreate('sourcesJar', Jar.class).configure {
     classifier = 'sources'
 }
 
-
 tasks.maybeCreate('javadoc', Javadoc.class).configure {
     source = sourceSets.main.java.srcDirs
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+tasks.maybeCreate('javadocJar', Jar.class).dependsOn(javadoc).configure {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
 }
 
 artifacts {
