@@ -20,7 +20,9 @@ if (lp.exists()) {
     properties.load(is)
     is.close();
 
-    autoConfigure = Boolean.valueOf(properties['autoConfigure']).booleanValue()
+    if (properties['autoConfigure'] != null) {
+        autoConfigure = Boolean.valueOf(properties['autoConfigure']).booleanValue()
+    }
 }
 
 if (autoConfigure && !gradle.startParameter.offline) {
