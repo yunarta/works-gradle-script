@@ -9,7 +9,21 @@ def downloadAddOn = !addOnXml.exists() || addOnXml.lastModified() + (24 * 60 * 6
 
 def repository = null
 def addOn = null
-if (!gradle.startParameter.offline) {
+
+boolean autoConfigure = true
+
+def lp = project.rootProject.file('local.properties')
+if (lp.exists()) {
+    Properties properties = new Properties()
+
+    def is = lp.newDataInputStream()
+    properties.load(is)
+    is.close();
+
+    autoConfigure = Boolean.valueOf(properties['autoConfigure']).booleanValue()
+}
+
+if (autoConfigure && !gradle.startParameter.offline) {
     if (downloadRepository && writable) {
         new URL('https://dl.google.com/android/repository/repository-11.xml').withInputStream {
             i -> repositoryXml.withOutputStream { it << i }
@@ -30,7 +44,8 @@ if (!gradle.startParameter.offline) {
 }
 
 def autoBuildTools, autoCompileSdk, autoRepositoryRevision
-if (repository != null && addOn != null) {
+
+if (autoConfigure && repository != null && addOn != null) {
     def highestApiLevel = 0
     for (apiLevel in repository.'sdk:platform'.'sdk:api-level') {
         highestApiLevel = Math.max(highestApiLevel, Integer.parseInt(apiLevel.text()))
@@ -80,7 +95,7 @@ if (repository != null && addOn != null) {
         file -> platformDirs.add(file.name)
     }
 
-    platformsDirs.sort()
+    platformDirs.sort()
     String platformDir = platformDirs.last()
     autoCompileSdk = platformDir.substring(platformDir.lastIndexOf('-') + 1)
 
@@ -106,7 +121,7 @@ String mostRecentVersion(List versions) {
 gradle.allprojects {
     ext {
         autoCompileSdkVersion = { int version ->
-            if (autoCompileSdk != null) {
+            if (autoConfigure == true && autoCompileSdk != null) {
                 version = Integer.parseInt(autoCompileSdk)
             }
 
@@ -114,19 +129,19 @@ gradle.allprojects {
         }
 
         autoBuildToolsVersion = { String revision ->
-            if (autoBuildTools != null) {
+            if (autoConfigure && autoBuildTools != null) {
                 revision = autoBuildTools
             }
 
             return revision
         }
 
-        autoSupportLibVersion = { String revision ->
-            if (autoRepositoryRevision != null) {
-                revision = autoRepositoryRevision
+        autoSupportLibVersion = { String version ->
+            if (autoConfigure && autoRepositoryRevision != null) {
+                version = autoRepositoryRevision
             }
 
-            return revision
+            return version
         }
     }
 }
