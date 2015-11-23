@@ -30,6 +30,17 @@ dependencies {
 
 The value inside the bracket is for fallback in case there is no Internet connection.
 
+**Overriding auto configure**
+
+If autoConfigure.enabled set to false then when present, the forced value will be used instead of values in bracket
+
+```
+autoConfigure.enable=true
+autoConfigure.forceCompileSdk=21
+autoConfigure.forceBuildTools=21.1.2
+autoConfigure.forceRepositoryRevision=19.1.0
+```
+
 ## BinTray publish script
 
 BinTray publish script is used to simplify uploading of your library into BinTray.

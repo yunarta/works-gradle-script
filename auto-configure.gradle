@@ -11,6 +11,9 @@ def repository = null
 def addOn = null
 
 boolean autoConfigure = true
+def dictateCompileSdk = -1
+def dictateAutoBuildTools
+def dictateAutoRepositoryRevision
 
 def lp = project.rootProject.file('local.properties')
 if (lp.exists()) {
@@ -18,10 +21,29 @@ if (lp.exists()) {
 
     def is = lp.newDataInputStream()
     properties.load(is)
-    is.close();
+    is.close()
 
-    if (properties['autoConfigure'] != null) {
-        autoConfigure = Boolean.valueOf(properties['autoConfigure']).booleanValue()
+    if (properties['autoConfigure.enable'] != null) {
+        autoConfigure = Boolean.valueOf(properties['autoConfigure.enable']).booleanValue()
+    }
+
+    if (properties['autoConfigure.forceCompileSdk'] != null) {
+        dictateCompileSdk = Integer.parseInt(properties['autoConfigure.forceCompileSdk']).intValue()
+    } else {
+        dictateCompileSdk = -1;
+    }
+
+    if (properties['autoConfigure.forceBuildTools'] != null) {
+        dictateAutoBuildTools = properties['autoConfigure.forceBuildTools']
+    } else {
+        dictateAutoBuildTools = null
+    }
+
+
+    if (properties['autoConfigure.forceRepositoryRevision'] != null) {
+        dictateAutoRepositoryRevision = properties['autoConfigure.forceRepositoryRevision']
+    } else {
+        dictateAutoRepositoryRevision = null
     }
 }
 
@@ -47,69 +69,89 @@ if (autoConfigure && !gradle.startParameter.offline) {
 
 def autoBuildTools, autoCompileSdk, autoRepositoryRevision
 
-if (autoConfigure && repository != null && addOn != null) {
-    def highestApiLevel = 0
-    for (apiLevel in repository.'sdk:platform'.'sdk:api-level') {
-        highestApiLevel = Math.max(highestApiLevel, Integer.parseInt(apiLevel.text()))
-    }
+println 'auto configure is ' + (autoConfigure ? 'enabled' : 'disabled')
 
-    autoCompileSdk = String.valueOf(highestApiLevel)
-
-    def buildToolsList = []
-    for (buildTools in repository.'sdk:build-tool'.'sdk:revision') {
-        def revision = buildTools.'sdk:major'.text() + '.' + buildTools.'sdk:minor'.text() + '.' + buildTools.'sdk:micro'.text()
-        buildToolsList.add(revision)
-    }
-
-    autoBuildTools = mostRecentVersion(buildToolsList)
-    for (extra in addOn.'sdk:extra') {
-        if ('support'.equals(extra.'sdk:path'.text())) {
-            def revision = extra.'sdk:revision'
-            autoRepositoryRevision = revision.'sdk:major'.text() + '.' + revision.'sdk:minor'.text() + '.' + revision.'sdk:micro'.text()
+if (autoConfigure) {
+    if (repository != null && addOn != null) {
+        def highestApiLevel = 0
+        for (apiLevel in repository.'sdk:platform'.'sdk:api-level') {
+            highestApiLevel = Math.max(highestApiLevel, Integer.parseInt(apiLevel.text()))
         }
-    }
-} else {
-    // get android home
-    def androidHome
-    def localProperties = project.rootProject.file('local.properties')
-    if (localProperties.exists()) {
-        Properties properties = new Properties()
 
-        def is = localProperties.newDataInputStream()
-        properties.load(is)
-        is.close();
+        autoCompileSdk = String.valueOf(highestApiLevel)
 
-        androidHome = properties['sdk.dir']
-    } else {
-        def env = System.getenv()
-        androidHome = env['ANDROID_HOME']
-    }
+        def buildToolsList = []
+        for (buildTools in repository.'sdk:build-tool'.'sdk:revision') {
+            def revision = buildTools.'sdk:major'.text() + '.' + buildTools.'sdk:minor'.text() + '.' + buildTools.'sdk:micro'.text()
+            buildToolsList.add(revision)
+        }
 
-    def buildToolsList = []
-    file(androidHome + '/build-tools').eachFile {
-        file -> buildToolsList.add(file.name)
-    }
-
-    autoBuildTools = mostRecentVersion(buildToolsList)
-
-    def platformDirs = []
-    file(androidHome + '/platforms').eachFile {
-        file -> platformDirs.add(file.name)
-    }
-
-    platformDirs.sort()
-    String platformDir = platformDirs.last()
-    autoCompileSdk = platformDir.substring(platformDir.lastIndexOf('-') + 1)
-
-    def supportDirs = []
-    file(androidHome + '/extras/android/m2repository/com/android/support/support-v13').eachFile {
-        file ->
-            if (file.isDirectory()) {
-                supportDirs.add(file.name)
+        autoBuildTools = mostRecentVersion(buildToolsList)
+        for (extra in addOn.'sdk:extra') {
+            if ('support'.equals(extra.'sdk:path'.text())) {
+                def revision = extra.'sdk:revision'
+                autoRepositoryRevision = revision.'sdk:major'.text() + '.' + revision.'sdk:minor'.text() + '.' + revision.'sdk:micro'.text()
             }
+        }
+    } else {
+        // get android home
+        def androidHome
+        def localProperties = project.rootProject.file('local.properties')
+        if (localProperties.exists()) {
+            Properties properties = new Properties()
+
+            def is = localProperties.newDataInputStream()
+            properties.load(is)
+            is.close();
+
+            androidHome = properties['sdk.dir']
+        } else {
+            def env = System.getenv()
+            androidHome = env['ANDROID_HOME']
+        }
+
+        def buildToolsList = []
+        file(androidHome + '/build-tools').eachFile {
+            file -> buildToolsList.add(file.name)
+        }
+
+        autoBuildTools = mostRecentVersion(buildToolsList)
+
+        def platformDirs = []
+        file(androidHome + '/platforms').eachFile {
+            file -> platformDirs.add(file.name)
+        }
+
+        platformDirs.sort()
+        String platformDir = platformDirs.last()
+        autoCompileSdk = platformDir.substring(platformDir.lastIndexOf('-') + 1)
+
+        def supportDirs = []
+        file(androidHome + '/extras/android/m2repository/com/android/support/support-v13').eachFile {
+            file ->
+                if (file.isDirectory()) {
+                    supportDirs.add(file.name)
+                }
+        }
+
+        autoRepositoryRevision = mostRecentVersion(supportDirs)
     }
 
-    autoRepositoryRevision = mostRecentVersion(supportDirs)
+    println '  auto sdk to android-' + autoCompileSdk
+    println '  auto build tools to revision ' + autoBuildTools
+    println '  auto repository to revision ' + autoRepositoryRevision
+} else {
+    if (dictateCompileSdk != -1) {
+        println '  forcing compile sdk to android-' + dictateCompileSdk
+    }
+
+    if (dictateAutoBuildTools != null) {
+        println '  forcing build tools to revision ' + dictateAutoBuildTools
+    }
+
+    if (dictateAutoRepositoryRevision != null) {
+        println '  forcing repository to revision ' + dictateAutoRepositoryRevision
+    }
 }
 
 String mostRecentVersion(List versions) {
@@ -123,7 +165,11 @@ String mostRecentVersion(List versions) {
 gradle.allprojects {
     ext {
         autoCompileSdkVersion = { int version ->
-            if (autoConfigure == true && autoCompileSdk != null) {
+            if (!autoConfigure && dictateCompileSdk != -1) {
+                return dictateCompileSdk
+            }
+
+            if (autoConfigure && autoCompileSdk != null) {
                 version = Integer.parseInt(autoCompileSdk)
             }
 
@@ -131,6 +177,10 @@ gradle.allprojects {
         }
 
         autoBuildToolsVersion = { String revision ->
+            if (!autoConfigure && dictateAutoBuildTools != null) {
+                return dictateAutoBuildTools
+            }
+
             if (autoConfigure && autoBuildTools != null) {
                 revision = autoBuildTools
             }
@@ -139,6 +189,10 @@ gradle.allprojects {
         }
 
         autoSupportLibVersion = { String version ->
+            if (!autoConfigure && dictateAutoRepositoryRevision != null) {
+                return dictateAutoRepositoryRevision
+            }
+
             if (autoConfigure && autoRepositoryRevision != null) {
                 version = autoRepositoryRevision
             }
