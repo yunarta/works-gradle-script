@@ -1,0 +1,97 @@
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'com.github.dcendents.android-maven'
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+    user = properties.getProperty("bintray.user")
+    key = properties.getProperty("bintray.apikey")
+
+    configurations = ['archives']
+    publish = worksPublish.bintray.publish
+
+    pkg {
+        repo = worksPublish.bintray.repo
+        name = worksPublish.bintray.name
+
+        userOrg = user
+
+        websiteUrl = worksPublish.siteUrl
+        vcsUrl = worksPublish.gitUrl
+        licenses = [worksPublish.bintray.license]
+        publish = worksPublish.bintray.publish
+        publicDownloadNumbers = true
+
+        version {
+            name = project.version
+            desc = worksPublish.bintray.versionDesc
+            vcsTag = project.version
+        }
+    }
+}
+
+install {
+    repositories.mavenInstaller {
+        // This generates POM.xml with proper parameters
+        pom {
+            project {
+                packaging 'aar'
+
+                // Add your description here
+                name project.name
+                url worksPublish.siteUrl
+
+                // Set your license
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id worksPublish.developer.id
+                        name worksPublish.developer.name
+                        email worksPublish.developer.email
+                    }
+                }
+                scm {
+                    connection worksPublish.gitUrl
+                    developerConnection worksPublish.gitUrl
+                    url worksPublish.siteUrl
+                }
+
+                withXml {
+                    def parentNode = asNode()
+                    parentNode.appendNode('packaging','aar')
+                }
+            }
+        }
+    }
+}
+
+tasks.maybeCreate('jar', Jar.class).configure {
+    from 'build/intermediates/classes/release'
+}
+
+tasks.maybeCreate('sourcesJar', Jar.class).configure {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+tasks.maybeCreate('javadoc', Javadoc.class).configure {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+tasks.maybeCreate('javadocJar', Jar.class).dependsOn(javadoc).configure {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+    archives jar
+}
