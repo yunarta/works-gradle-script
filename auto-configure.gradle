@@ -1,6 +1,4 @@
 def tmpDir = System.getenv('TMPDIR')
-println 'env TMPDIR = [' + tmpDir + ']'
-
 if (tmpDir == null) {
     def lp = project.rootProject.file('local.properties')
     Properties properties = new Properties()
@@ -13,6 +11,7 @@ if (tmpDir == null) {
         tmpDir = properties["tmpDir"]
     } else {
         println 'no env TMPDIR found, you can set a temporary dir in local.properties with key \'tmpDir\''
+        throw new IllegalStateException("tmp dir is required")
     }
 }
 
