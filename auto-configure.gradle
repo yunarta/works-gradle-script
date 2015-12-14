@@ -1,4 +1,6 @@
 def tmpDir = System.getenv('TMPDIR')
+println 'env TMPDIR = [' + tmpDir + ']'
+
 if (tmpDir == null) {
     def lp = project.rootProject.file('local.properties')
     Properties properties = new Properties()
